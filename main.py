@@ -8,11 +8,12 @@ import traceback
 import openpyxl
 import pytz
 import requests
+from decouple import config
 
 from proxy import getProxies, findProxy, checkProxy
 
-xlsx_file = 'rezult.xlsx'
-mouser_api_key = 'a6adbd72-cc89-4454-a34c-dd0f75364d52'  # Нашёл в интернете
+xlsx_file = config('xlsx_file')
+mouser_api_key = config('mouser_api_key')
 
 
 def parse_stock(name, proxy):
@@ -60,7 +61,7 @@ def main():
             working_proxy = f.readline().strip()
         print("Проверка сохранённого proxy...")
         if checkProxy(working_proxy) is False:
-            print("Поиск нового proxy...")
+            print("Поиск нового proxy... Поиск может занять до нескольких минут.")
             proxies = getProxies()
             working_proxy = findProxy(proxies)
             with open('proxy.txt', 'w') as f:
@@ -73,8 +74,8 @@ def main():
 
     wookbook = openpyxl.load_workbook(xlsx_file)
     worksheet = wookbook.active
-    worksheet.cell(row=1, column=4).value = datetime.datetime.now(pytz.timezone('Europe/Moscow')).strftime('%d-%m-%Y_ '
-                                                                                                           '%H:%M:%S')
+    worksheet.cell(row=1, column=4).value = datetime.datetime.now(pytz.timezone('Europe/Moscow')).strftime(
+        config('time_format'))
     for row_i in range(2, worksheet.max_row + 1):
         name = worksheet.cell(row=row_i, column=2).value
         stock = parse_stock(name, proxy)
