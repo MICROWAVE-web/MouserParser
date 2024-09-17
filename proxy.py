@@ -1,5 +1,8 @@
 import time
+
 import requests
+from decouple import config
+from tqdm import tqdm
 import undetected_chromedriver as uc
 from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
@@ -25,9 +28,9 @@ def checkProxy(prx):
 
 
 def getProxies():
-    browser = uc.Chrome(driver_executable_path=ChromeDriverManager().install(), headless=True)
+    browser = uc.Chrome(driver_executable_path=ChromeDriverManager().install(), headless=bool(int(config('headless'))))
     browser.get('http://free-proxy.cz/ru/')
-    time.sleep(2)
+    time.sleep(4)
     browser.find_element(By.XPATH, '//*[@id="frmsearchFilter-protocol-2"]').click()
     browser.find_element(By.XPATH, '//*[@id="frmsearchFilter-send"]').click()
     time.sleep(1.5)
@@ -45,7 +48,7 @@ def getProxies():
 
 
 def findProxy(prxs):
-    for pr in prxs:
+    for pr in tqdm(prxs):
         res = checkProxy(pr)
         if res is not False:
             return res

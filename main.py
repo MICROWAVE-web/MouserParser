@@ -4,7 +4,9 @@ import os
 import random
 import time
 import traceback
+import warnings
 
+warnings.filterwarnings('ignore')
 import openpyxl
 import pytz
 import requests
@@ -46,11 +48,11 @@ def parse_stock(name, proxy):
 
 def main():
     if not os.path.exists(xlsx_file):
-        raise Exception("Файл «{xlsx_file}» не найден.")
+        raise Exception(f"Файл «{xlsx_file}» не найден.")
 
     proxy = None
     if not os.path.exists('proxy.txt'):
-        print("Поиск proxy...")
+        print("Поиск нового proxy... Поиск может занять до нескольких минут.")
         proxies = getProxies()
         working_proxy = findProxy(proxies)
         with open('proxy.txt', 'w') as f:
@@ -74,21 +76,31 @@ def main():
 
     wookbook = openpyxl.load_workbook(xlsx_file)
     worksheet = wookbook.active
-    worksheet.cell(row=1, column=4).value = datetime.datetime.now(pytz.timezone('Europe/Moscow')).strftime(
+    for col_i in range(1, worksheet.max_column + 2):
+        if worksheet.cell(row=1, column=col_i).value in ['', None]:
+            n_col = col_i
+            break
+    worksheet.cell(row=1, column=n_col).value = datetime.datetime.now(pytz.timezone('Europe/Moscow')).strftime(
         config('time_format'))
     for row_i in range(2, worksheet.max_row + 1):
         name = worksheet.cell(row=row_i, column=2).value
         stock = parse_stock(name, proxy)
         if stock == -1:
-            worksheet.cell(row=row_i, column=4).value = 'Ошибка'
+            worksheet.cell(row=row_i, column=n_col).value = 'Ошибка'
         else:
-            worksheet.cell(row=row_i, column=4).value = stock
+            if bool(int(config('console_log'))):
+                print(f"{name}: {stock}")
+            worksheet.cell(row=row_i, column=n_col).value = stock
         time.sleep(random.randint(1, 10) // 10)
     wookbook.save(xlsx_file)
+    print('Скрипт успешно завершил свою работу. ◝(ᵔᵕᵔ)◜')
+    print("\nПрограмма завершит свою работу через 120 секунд.")
+    time.sleep(120)
 
 
 if __name__ == '__main__':
     try:
+        print("Убедитесь, что в вас включен VPN. Без VPN работа скрипта невозможна.")
         main()
     except Exception:
         traceback.print_exc()
