@@ -12,16 +12,19 @@ import pytz
 import requests
 from decouple import config
 
-from proxy import getProxies, findProxy, checkProxy
+from proxy import getProxies, findProxy, checkProxy, checkConnection
 
 xlsx_file = config('xlsx_file')
 mouser_api_key = config('mouser_api_key')
 
 
 def parse_stock(name, proxy):
-    proxies = {
-        "https": proxy,
-    }
+    if proxy:
+        proxies = {
+            "https": proxy,
+        }
+    else:
+        proxies = None
     body = json.dumps({
         "SearchByKeywordRequest": {
             "keyword": name,
@@ -36,8 +39,11 @@ def parse_stock(name, proxy):
     r = requests.post(url, data=body, proxies=proxies, headers=headers)
     if r.status_code == 200:
         data = json.loads(r.text)
+        # pprint(data)
         for part in data["SearchResults"]["Parts"]:
             if part["ManufacturerPartNumber"] == name:
+                if 'Availability' not in part.keys():
+                    return 0
                 if "In Stock" in part["Availability"]:
                     return int(part["Availability"].split()[0])
                 else:
@@ -50,29 +56,32 @@ def main():
     if not os.path.exists(xlsx_file):
         raise Exception(f"Файл «{xlsx_file}» не найден.")
 
-    proxy = None
-    if not os.path.exists('proxy.txt'):
-        print("Поиск нового proxy... Поиск может занять до нескольких минут.")
-        proxies = getProxies()
-        working_proxy = findProxy(proxies)
-        with open('proxy.txt', 'w') as f:
-            f.write(working_proxy)
-        proxy = working_proxy
+    if checkConnection():
+        print("Подключение с mauser electronics установлено. Proxy не требуется")
+        proxy = None
     else:
-        with open('proxy.txt', 'r') as f:
-            working_proxy = f.readline().strip()
-        print("Проверка сохранённого proxy...")
-        if checkProxy(working_proxy) is False:
+        if not os.path.exists('proxy.txt'):
             print("Поиск нового proxy... Поиск может занять до нескольких минут.")
             proxies = getProxies()
             working_proxy = findProxy(proxies)
             with open('proxy.txt', 'w') as f:
                 f.write(working_proxy)
-        proxy = working_proxy
-    if proxy is None:
-        print("PROXY не найден! (✘ᆺ✘)")
-    else:
-        print(f"PROXY успешно найден! (>⩊<): {working_proxy}")
+            proxy = working_proxy
+        else:
+            with open('proxy.txt', 'r') as f:
+                working_proxy = f.readline().strip()
+            print("Проверка сохранённого proxy...")
+            if checkProxy(working_proxy) is False:
+                print("Поиск нового proxy... Поиск может занять до нескольких минут.")
+                proxies = getProxies()
+                working_proxy = findProxy(proxies)
+                with open('proxy.txt', 'w') as f:
+                    f.write(working_proxy)
+            proxy = working_proxy
+        if proxy is None:
+            print("PROXY не найден! (✘ᆺ✘)")
+        else:
+            print(f"PROXY успешно найден! (>⩊<): {working_proxy}")
 
     wookbook = openpyxl.load_workbook(xlsx_file)
     worksheet = wookbook.active
